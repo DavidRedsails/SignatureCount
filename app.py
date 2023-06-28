@@ -66,6 +66,8 @@ def warp_perspective(image, document_contour):
 # 缩放比例
 re_size = 0.5
 
+log = 'log /n'
+
 
 # 主要算法
 def sign_analysis(pic):
@@ -190,6 +192,8 @@ def sign_analysis(pic):
             print('签名框', i + 1, f'找到签名,笔记数为{count}')
             sign_count += 1
 
+            log.append(f'签名框{i}笔记数是{count} /n')
+
             # # todo test
             # cv2.imshow(f'{i+1}_signature_box_{count}', signature_box)
             # cv2.waitKey(0)
@@ -247,6 +251,7 @@ with col2:
 
                 # 显示文本结果
                 st.write('找到的签名数量：', text_result, '个。')
+                st.write(log)
 
                 # 将 OpenCV 图像转换为 RGB 颜色空间
                 rgb_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)
