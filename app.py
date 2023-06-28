@@ -63,6 +63,10 @@ def warp_perspective(image, document_contour):
     return warped
 
 
+# 缩放比例
+re_size = 0.5
+
+
 # 主要算法
 def sign_analysis(pic):
     photo = pic
@@ -151,7 +155,7 @@ def sign_analysis(pic):
         count = np.sum(signature_box == 255)
 
         # 如果黑色像素数量超过一个阈值，那么我们可以认为这个框内有签名
-        if count > 1000:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
+        if count > 800 * re_size * re_size:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
             print('Box', i + 1, 'has a signature.')
             sign_count += 1
 
@@ -164,8 +168,8 @@ def sign_analysis(pic):
 
 # 创建标题和说明
 st.set_page_config(
-   page_title="签到表识别Demo",
-   layout="wide",  # 将这里改为"wide"
+    page_title="签到表识别Demo",
+    layout="wide",  # 将这里改为"wide"
 )
 
 # 创建标题和说明
@@ -199,7 +203,7 @@ with col2:
                 # 使用 OpenCV 读取图片
                 cv_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-                cv_image = cv2.resize(cv_image, (0, 0), fx=0.5, fy=0.5)
+                cv_image = cv2.resize(cv_image, (0, 0), fx=re_size, fy=re_size)
 
                 # 在此处添加您的图像处理代码
                 # 返回处理后的图像和文本结果
@@ -218,4 +222,3 @@ with col2:
                 st.image(pil_image, caption='处理后的图像')
         else:
             st.write('请先上传一张图片')
-
