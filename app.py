@@ -85,36 +85,55 @@ def sign_analysis(pic):
     reader = easyocr.Reader(['ch_sim', 'en'])  # 这里你可以根据需要选择语言
     result_text = reader.readtext(result)
 
-    # 初始化左边距和列的宽度
-    column_left = None
-    column_width = result.shape[1]  # 列宽度设为图片的宽度
-    row_height = result.shape[0] / 16
+    # 初始化参数
+    sign_left_start = None
+    sign_top_start = None
+    sign_top_end = None
+    sign_left_end = None
+    last_15_bottom_end = None
 
-    # 搜索签名
-    sign_row = None
-    for item in result_text:
+    # 搜索签名和最后一个15
+    for item in reversed(result_text):
         box, text, _ = item
         if "签名" in text:
             top_left, top_right, bottom_right, bottom_left = box
-            x, y = top_left
-            column_left = x  # 记录签名的左边距
-            sign_row = int(y // row_height)  # 确定签名所在的行
-            # 用绿色框表示出签名
-            cv2.polylines(result, [np.array(box, np.int32).reshape((-1, 1, 2))], True, (0, 255, 0), 2)
-            break  # 找到签名后就跳出循环
+            x1, y1 = top_left
+            x2, y2 = bottom_right
+            if sign_left_start is None:
+                sign_left_start = x1
+                sign_top_start = y1
+                sign_top_end = y2
+                sign_left_end = x2
+            else:
+                sign_left_start = min(sign_left_start, x1)
+                sign_top_start = min(sign_top_start, y1)
+                sign_top_end = max(sign_top_end, y2)
+                sign_left_end = max(sign_left_end, x2)
+        elif "15" in text and last_15_bottom_end is None:
+            _, _, _, bottom_left = box
+            _, y = bottom_left
+            last_15_bottom_end = y
 
-    # 根据签名的左边距和图片的高度，均匀分成16个部分，并用红色的框标记出来
+    # 计算高度
+    text_high = sign_top_end - sign_top_start
+    total_high = last_15_bottom_end - sign_top_start
+    field_high = (total_high - text_high) / 15
+    blank_high = (field_high - text_high) / 2
+
+    # 计算宽度
+    box_width = 3.5 * (sign_left_end - sign_left_start)
+
+    # 根据计算的高度和宽度，生成签名框
     sign_boxes = []
-    if column_left is not None:
-        for i in range(16):
-            if i <= sign_row:  # 跳过在"签名"行及其以上的行
-                continue
-            top_left = [column_left + 10, i * row_height + 10]
-            bottom_right = [column_width - 10, (i + 1) * row_height - 10]
-            box = [top_left, [bottom_right[0], top_left[1]], bottom_right, [top_left[0], bottom_right[1]]]
-            # 用红色框表示出每个部分
-            cv2.polylines(result, [np.array(box, np.int32).reshape((-1, 1, 2))], True, (0, 0, 255), 2)
-            sign_boxes.append(box)  # 将这个框的位置添加到sign_boxes列表中
+    for i in range(15):
+        top = sign_top_end + (2 * blank_high) + i * field_high
+        bottom = top + field_high - blank_high * 2
+        left = sign_left_start + blank_high / 5
+        right = left + box_width
+        box = [[left, top], [right, top], [right, bottom], [left, bottom]]
+        # 画出红色的框
+        cv2.polylines(result, [np.array(box, np.int32).reshape((-1, 1, 2))], True, (0, 0, 255), 2)
+        sign_boxes.append(box)  # 将这个框的位置添加到sign_boxes列表中
 
     # 转换为灰度图像
     corrected_gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
@@ -123,12 +142,24 @@ def sign_analysis(pic):
     _, corrected_binary = cv2.threshold(corrected_gray, 127, 255, cv2.THRESH_BINARY_INV)
 
     # 使用Hough变换检测直线
-    lines = cv2.HoughLinesP(corrected_binary, 1, np.pi / 180, 100, minLineLength=100, maxLineGap=10)
+    # cv2.HoughLinesP()函数用于检测图像中的直线，这个函数的参数设置会影响检测结果。
+    #
+    # rho（本例中值为1）：距离分辨率，以像素为单位。这是创建累加器来检测线段的分辨率。
+    # theta（本例中值为np.pi / 180）：角度分辨率，以弧度为单位。这是创建累加器来检测线段的分辨率。
+    # threshold（本例中值为100）：只有累加器中的值高于阈值的线段才被返回。阈值参数越大，可以检测到的直线越少。
+    # minLineLength（本例中值为50）：最小线段长度。线段长度小于此值的线段将不被检测。
+    # maxLineGap（本例中值为20）：线段之间允许的最大间隙，如果间隙小于此值，这两条线段将被视为一条线段。
+    lines = cv2.HoughLinesP(corrected_binary, 1, np.pi / 180, 100, minLineLength=50, maxLineGap=50)
 
     # 移除检测到的直线
     for line in lines:
         x1, y1, x2, y2 = line[0]
         cv2.line(corrected_binary, (x1, y1), (x2, y2), (0, 0, 0), 2)
+
+    # # todo test
+    # cv2.imshow('corrected_binary', corrected_binary)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
     # 初始化签名数量
     sign_count = 0
@@ -156,8 +187,13 @@ def sign_analysis(pic):
 
         # 如果黑色像素数量超过一个阈值，那么我们可以认为这个框内有签名
         if count > 800 * re_size * re_size:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
-            print('Box', i + 1, 'has a signature.')
+            print('签名框', i + 1, f'找到签名,笔记数为{count}')
             sign_count += 1
+
+            # # todo test
+            # cv2.imshow(f'{i+1}_signature_box_{count}', signature_box)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
 
             # 增加透明的蓝色覆盖
             alpha = 0.5  # transparency level
