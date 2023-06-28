@@ -199,6 +199,8 @@ with col2:
                 # 使用 OpenCV 读取图片
                 cv_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
+                cv_image = cv2.resize(cv_image, (0, 0), fx=0.5, fy=0.5)
+
                 # 在此处添加您的图像处理代码
                 # 返回处理后的图像和文本结果
                 processed_image, text_result = sign_analysis(cv_image)
