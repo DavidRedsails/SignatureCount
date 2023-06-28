@@ -128,7 +128,7 @@ def sign_analysis(pic):
     for i in range(15):
         top = sign_top_end + (2 * blank_high) + i * field_high
         bottom = top + field_high - blank_high * 2
-        left = sign_left_start + blank_high / 5
+        left = sign_left_start + blank_high
         right = left + box_width
         box = [[left, top], [right, top], [right, bottom], [left, bottom]]
         # 画出红色的框
