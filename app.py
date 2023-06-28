@@ -186,7 +186,7 @@ def sign_analysis(pic):
         count = np.sum(signature_box == 255)
 
         # 如果黑色像素数量超过一个阈值，那么我们可以认为这个框内有签名
-        if count > 800 * re_size * re_size:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
+        if count > 700 * re_size * re_size:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
             print('签名框', i + 1, f'找到签名,笔记数为{count}')
             sign_count += 1
 
