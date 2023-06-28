@@ -191,7 +191,7 @@ def sign_analysis(pic):
         # cv2.destroyAllWindows()
 
         # 如果黑色像素数量超过一个阈值，那么我们可以认为这个框内有签名
-        if count > 700 * re_size * re_size:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
+        if count > 10 :  # 你需要根据你的图像来调整这个阈值, 原来参数: 700 * re_size * re_size
             print('签名框', i + 1, f'找到签名,笔记数为{count}')
             sign_count += 1
 
@@ -249,18 +249,18 @@ with col2:
 
                 # 显示文本结果
                 st.write('找到的签名数量：', text_result, '个。')
-                st.write(log)
+                # st.write(log)
 
                 # 将 OpenCV 图像转换为 RGB 颜色空间
                 rgb_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)
-                binary_image = cv2.cvtColor(corrected_binary, cv2.COLOR_BGR2RGB)
+                # binary_image = cv2.cvtColor(corrected_binary, cv2.COLOR_BGR2RGB)
 
                 # 将 OpenCV 图像转换为 PIL 图像
                 pil_image = Image.fromarray(rgb_image)
-                pil_image2 = Image.fromarray(binary_image)
+                # pil_image2 = Image.fromarray(binary_image)
 
                 # 显示处理后的图像
                 st.image(pil_image, caption='处理后的图像')
-                st.image(pil_image2, caption='二值图')
+                # st.image(pil_image2, caption='二值图')
         else:
             st.write('请先上传一张图片')
