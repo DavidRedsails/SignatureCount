@@ -64,13 +64,12 @@ def warp_perspective(image, document_contour):
 
 
 # 缩放比例
-re_size = 0.5
-
-log = 'log /n'
+re_size = 0.6
 
 
 # 主要算法
 def sign_analysis(pic):
+    log = 'log \n\n'
     photo = pic
 
     # 寻找文档轮廓
@@ -123,19 +122,7 @@ def sign_analysis(pic):
     blank_high = (field_high - text_high) / 2
 
     # 计算宽度
-    box_width = 3.5 * (sign_left_end - sign_left_start)
-
-    # 根据计算的高度和宽度，生成签名框
-    sign_boxes = []
-    for i in range(15):
-        top = sign_top_end + (2 * blank_high) + i * field_high
-        bottom = top + field_high - blank_high * 2
-        left = sign_left_start + blank_high
-        right = left + box_width
-        box = [[left, top], [right, top], [right, bottom], [left, bottom]]
-        # 画出红色的框
-        cv2.polylines(result, [np.array(box, np.int32).reshape((-1, 1, 2))], True, (0, 0, 255), 2)
-        sign_boxes.append(box)  # 将这个框的位置添加到sign_boxes列表中
+    box_width = 3 * (sign_left_end - sign_left_start)
 
     # 转换为灰度图像
     corrected_gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
@@ -145,13 +132,12 @@ def sign_analysis(pic):
 
     # 使用Hough变换检测直线
     # cv2.HoughLinesP()函数用于检测图像中的直线，这个函数的参数设置会影响检测结果。
-    #
     # rho（本例中值为1）：距离分辨率，以像素为单位。这是创建累加器来检测线段的分辨率。
     # theta（本例中值为np.pi / 180）：角度分辨率，以弧度为单位。这是创建累加器来检测线段的分辨率。
     # threshold（本例中值为100）：只有累加器中的值高于阈值的线段才被返回。阈值参数越大，可以检测到的直线越少。
     # minLineLength（本例中值为50）：最小线段长度。线段长度小于此值的线段将不被检测。
     # maxLineGap（本例中值为20）：线段之间允许的最大间隙，如果间隙小于此值，这两条线段将被视为一条线段。
-    lines = cv2.HoughLinesP(corrected_binary, 1, np.pi / 180, 100, minLineLength=50, maxLineGap=50)
+    lines = cv2.HoughLinesP(corrected_binary, 1, np.pi / 180, 100, minLineLength=50, maxLineGap=20)
 
     # 移除检测到的直线
     for line in lines:
@@ -162,6 +148,18 @@ def sign_analysis(pic):
     # cv2.imshow('corrected_binary', corrected_binary)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
+
+    # 根据计算的高度和宽度，生成签名框
+    sign_boxes = []
+    for i in range(15):
+        top = sign_top_end + (2 * blank_high) + i * field_high
+        bottom = top + field_high - blank_high
+        left = sign_left_start + blank_high
+        right = left + box_width
+        box = [[left, top], [right, top], [right, bottom], [left, bottom]]
+        # 画出红色的框
+        cv2.polylines(result, [np.array(box, np.int32).reshape((-1, 1, 2))], True, (0, 0, 255), 2)
+        sign_boxes.append(box)  # 将这个框的位置添加到sign_boxes列表中
 
     # 初始化签名数量
     sign_count = 0
@@ -186,24 +184,23 @@ def sign_analysis(pic):
 
         # 计算黑色像素的数量
         count = np.sum(signature_box == 255)
+        log = log + f'签名框{i + 1}笔记数是{count} \n\n'
+        # # 测试
+        # cv2.imshow(f'{i+1}_signature_box_{count}', signature_box)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # 如果黑色像素数量超过一个阈值，那么我们可以认为这个框内有签名
         if count > 700 * re_size * re_size:  # 这只是一个例子，你需要根据你的图像来调整这个阈值
             print('签名框', i + 1, f'找到签名,笔记数为{count}')
             sign_count += 1
 
-            log.append(f'签名框{i}笔记数是{count} /n')
-
-            # # todo test
-            # cv2.imshow(f'{i+1}_signature_box_{count}', signature_box)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
-
             # 增加透明的蓝色覆盖
             alpha = 0.5  # transparency level
             added_image = cv2.addWeighted(result[y:y + h, x:x + w], alpha, blue_mask[y:y + h, x:x + w], 1 - alpha, 0)
             result[y:y + h, x:x + w] = added_image
-    return result, sign_count
+
+    return result, sign_count, log, corrected_binary
 
 
 # 创建标题和说明
@@ -241,13 +238,11 @@ with col2:
                 file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
 
                 # 使用 OpenCV 读取图片
-                cv_image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-
-                cv_image = cv2.resize(cv_image, (0, 0), fx=re_size, fy=re_size)
+                cv_image = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
 
                 # 在此处添加您的图像处理代码
                 # 返回处理后的图像和文本结果
-                processed_image, text_result = sign_analysis(cv_image)
+                processed_image, text_result, log, corrected_binary = sign_analysis(cv_image)
 
                 # 显示文本结果
                 st.write('找到的签名数量：', text_result, '个。')
@@ -255,11 +250,14 @@ with col2:
 
                 # 将 OpenCV 图像转换为 RGB 颜色空间
                 rgb_image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)
+                binary_image = cv2.cvtColor(corrected_binary, cv2.COLOR_BGR2RGB)
 
                 # 将 OpenCV 图像转换为 PIL 图像
                 pil_image = Image.fromarray(rgb_image)
+                pil_image2 = Image.fromarray(binary_image)
 
                 # 显示处理后的图像
                 st.image(pil_image, caption='处理后的图像')
+                st.image(pil_image2, caption='二值图')
         else:
             st.write('请先上传一张图片')
