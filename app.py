@@ -64,7 +64,7 @@ def warp_perspective(image, document_contour):
 
 
 # 缩放比例
-re_size = 0.6
+re_size = 0.5
 
 
 # 主要算法
@@ -239,6 +239,9 @@ with col2:
 
                 # 使用 OpenCV 读取图片
                 cv_image = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
+
+                # 服务器算力不足,所以调整图像大小，使其宽度和高度都减少
+                cv_image = cv2.resize(cv_image, None, fx=re_size, fy=re_size)
 
                 # 在此处添加您的图像处理代码
                 # 返回处理后的图像和文本结果
